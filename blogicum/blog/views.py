@@ -6,13 +6,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.generic import (
-    ListView,
-    CreateView,
-    UpdateView,
-    DetailView,
-)
-
+from django.views.generic import ListView, CreateView, UpdateView, DetailView
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, User, Comment, Category
 
@@ -37,7 +31,7 @@ def index(request):
     return render(request, template_name, context)
 
 
-def profile(request, username):
+def user_profile(request, username):
     template_name = 'blog/profile.html'
     profile = get_object_or_404(User, username=username)
     if str(request.user) == username:
@@ -67,7 +61,7 @@ def profile(request, username):
     return render(request, template_name, context)
 
 
-class EditProfile(LoginRequiredMixin, UpdateView):
+class EditUserProfile(LoginRequiredMixin, UpdateView):
     model = User
     form_class = UserForm
     template_name = 'blog/user.html'
@@ -87,7 +81,7 @@ class EditProfile(LoginRequiredMixin, UpdateView):
         return reverse('blog:profile', args=[self.request.user.username])
 
 
-class CategoryPosts(ListView):
+class CategoryPost(ListView):
     model = Post
     template_name = 'blog/category.html'
     paginate_by = 10
@@ -139,6 +133,27 @@ class PostDetail(DetailView):
         return context
 
 
+class PostCreateView(LoginRequiredMixin, CreateView):
+    form_class = PostForm
+    template_name = 'blog/post_form.html'
+
+    def form_valid(self, form):
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+
+class PostUpdateView(LoginRequiredMixin, UpdateView):
+    model = Post
+    form_class = PostForm
+    template_name = 'blog/post_form.html'
+    pk_url_kwarg = 'post_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        if self.get_object().author != self.request.user:
+            return redirect('blog:post_detail', post_pk=self.kwargs['post_id'])
+        return super().dispatch(request, *args, **kwargs)
+
+
 @login_required
 def add_comment(request, post_pk):
     post = get_object_or_404(Post, pk=post_pk)
@@ -185,27 +200,6 @@ def delete_comment(request, post_pk, comment_id):
         'delete_comment': delete_comment,
     }
     return render(request, 'blog/comment.html', context)
-
-
-class CreatePost(LoginRequiredMixin, CreateView):
-    form_class = PostForm
-    template_name = 'blog/post_form.html'
-
-    def form_valid(self, form):
-        form.instance.author = self.request.user
-        return super().form_valid(form)
-
-
-class UpdatePost(LoginRequiredMixin, UpdateView):
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/post_form.html'
-    pk_url_kwarg = 'post_id'
-
-    def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != self.request.user:
-            return redirect('blog:post_detail', post_pk=self.kwargs['post_id'])
-        return super().dispatch(request, *args, **kwargs)
 
 
 @login_required
