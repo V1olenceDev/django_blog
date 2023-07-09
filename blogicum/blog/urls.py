@@ -6,7 +6,7 @@ app_name = 'blog'
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('profile/<slug:username>/', views.user_profile, name='profile'),
+    path('profile/<str:username>/', views.user_profile, name='profile'),
     path('edit_profile/<slug:username>/', views.EditUserProfile.as_view(),
          name='edit_profile',),
     path('posts/create/', views.PostCreateView.as_view(),

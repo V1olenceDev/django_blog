@@ -1,14 +1,22 @@
-from django.utils import timezone
-
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count
+from django.db.models.functions import Now
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
-from .forms import PostForm, CommentForm, UserForm
+
 from .models import Post, User, Comment, Category
+from .forms import PostForm, CommentForm, UserForm
+from blogicum.settings import POSTS_PER_PAGE
+
+
+def get_paginated_objects(objects, request, per_page=POSTS_PER_PAGE):
+    paginator = Paginator(objects, per_page)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return page_obj
 
 
 def index(request):
@@ -17,14 +25,12 @@ def index(request):
         Post.objects.filter(
             is_published=True,
             category__is_published=True,
-            pub_date__lte=timezone.now(),
+            pub_date__lte=Now(),
         )
-        .annotate(comment_count=Count('comment'))
+        .annotate(comment_count=Count('comments'))
         .order_by('-pub_date')
     )
-    paginator = Paginator(post_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = get_paginated_objects(post_list, request)
     context = {
         'page_obj': page_obj,
     }
@@ -37,7 +43,7 @@ def user_profile(request, username):
     if str(request.user) == username:
         post_list = (
             Post.objects.filter(author__username=username)
-            .annotate(comment_count=Count('comment'))
+            .annotate(comment_count=Count('comments'))
             .order_by('-pub_date')
         )
     else:
@@ -46,14 +52,13 @@ def user_profile(request, username):
                 author__username=username,
                 is_published=True,
                 category__is_published=True,
-                pub_date__lte=timezone.now(),
+                pub_date__lte=Now(),
             )
-            .annotate(comment_count=Count('comment'))
+            .annotate(comment_count=Count('comments'))
             .order_by('-pub_date')
         )
-    paginator = Paginator(post_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = get_paginated_objects(post_list, request,
+                                     per_page=POSTS_PER_PAGE)
     context = {
         'profile': profile,
         'page_obj': page_obj,
@@ -67,13 +72,6 @@ class EditUserProfile(LoginRequiredMixin, UpdateView):
     template_name = 'blog/user.html'
     slug_url_kwarg = 'username'
 
-    def get(self, request, **kwargs):
-        self.object = User.objects.get(username=self.request.user.username)
-        form_class = self.get_form_class()
-        form = self.get_form(form_class)
-        context = self.get_context_data(object=self.object, form=form)
-        return self.render_to_response(context)
-
     def get_object(self, queryset=None):
         return self.request.user
 
@@ -84,17 +82,20 @@ class EditUserProfile(LoginRequiredMixin, UpdateView):
 class CategoryPost(ListView):
     model = Post
     template_name = 'blog/category.html'
-    paginate_by = 10
+    paginate_by = POSTS_PER_PAGE
 
     def get_queryset(self):
+        category = get_object_or_404(
+            Category,
+            slug=self.kwargs['category_slug'],
+            is_published=True,
+        )
         return (
-            Post.objects.filter(
-                category__slug=self.kwargs['category_slug'],
+            category.posts.filter(
                 is_published=True,
-                category__is_published=True,
-                pub_date__lte=timezone.now(),
+                pub_date__lte=Now(),
             )
-            .annotate(comment_count=Count('comment'))
+            .annotate(comment_count=Count('comments'))
             .order_by('-pub_date')
         )
 
@@ -115,19 +116,19 @@ class PostDetail(DetailView):
     context_object_name = 'post'
 
     def get_queryset(self):
-        instance = get_object_or_404(Post, id=self.kwargs['post_pk'])
+        queryset = super().get_queryset()
+        instance = get_object_or_404(queryset, id=self.kwargs['post_pk'])
         if self.request.user != instance.author:
-            return Post.objects.filter(
+            queryset = queryset.filter(
                 is_published=True,
                 category__is_published=True,
-                id=self.kwargs['post_pk'],
             )
-        return Post.objects.filter(id=self.kwargs['post_pk'])
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['form'] = CommentForm()
-        context['comments'] = self.object.comment.select_related(
+        context['comments'] = self.object.comments.select_related(
             'author'
         ).order_by('created_at')
         return context

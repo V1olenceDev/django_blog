@@ -2,9 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-
 from core.models import PublishedModel
-
 
 User = get_user_model()
 
@@ -16,7 +14,7 @@ class Location(PublishedModel):
         verbose_name = 'местоположение'
         verbose_name_plural = 'Местоположения'
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.name
 
 
@@ -28,14 +26,14 @@ class Category(PublishedModel):
         unique=True,
         verbose_name='Идентификатор',
         help_text='Идентификатор страницы для URL; '
-        'разрешены символы латиницы, цифры, дефис и подчёркивание.',
+                  'разрешены символы латиницы, цифры, дефис и подчёркивание.',
     )
 
     class Meta:
         verbose_name = 'категория'
         verbose_name_plural = 'Категории'
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.title
 
 
@@ -44,14 +42,14 @@ class Post(PublishedModel):
     text = models.TextField(verbose_name='Текст')
     pub_date = models.DateTimeField(
         help_text='Если установить дату и время '
-        'в будущем — можно делать отложенные публикации.',
+                  'в будущем — можно делать отложенные публикации.',
         verbose_name='Дата и время публикации',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         verbose_name='Автор публикации',
-        related_name='posts_user',
+        related_name='posts',
     )
     location = models.ForeignKey(
         Location,
@@ -74,9 +72,9 @@ class Post(PublishedModel):
         verbose_name_plural = 'Публикации'
 
     def get_absolute_url(self):
-        return reverse('blog:profile', args=[self.author])
+        return reverse('blog:profile', args=[self.author.username])
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.title
 
 
@@ -85,7 +83,7 @@ class Comment(models.Model):
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
-        related_name='comment',
+        related_name='comments',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -93,5 +91,5 @@ class Comment(models.Model):
     class Meta:
         ordering = ('created_at',)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.text

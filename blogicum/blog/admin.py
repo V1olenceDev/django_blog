@@ -1,8 +1,10 @@
 from django.contrib import admin
+from django.contrib.admin.decorators import register
 
 from .models import Post, Category, Location
 
 
+@register(Post)
 class AdminPost(admin.ModelAdmin):
     list_display = (
         'title',
@@ -21,6 +23,5 @@ class AdminPost(admin.ModelAdmin):
     list_display_links = ('title',)
 
 
-admin.site.register(Post, AdminPost)
 admin.site.register(Category)
 admin.site.register(Location)
