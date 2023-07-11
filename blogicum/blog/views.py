@@ -3,18 +3,20 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
 from django.db.models import Count
 from django.db.models.functions import Now
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from .models import Post, User, Comment, Category
 from .forms import PostForm, CommentForm, UserForm
-from blogicum.settings import POSTS_PER_PAGE
+from django.conf import settings
+
+POSTS_PER_PAGE = settings.POSTS_PER_PAGE
 
 
-def get_paginated_objects(objects, request, per_page=POSTS_PER_PAGE):
+def get_paginated_objects(objects, page_number, per_page=POSTS_PER_PAGE):
     paginator = Paginator(objects, per_page)
-    page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     return page_obj
 
@@ -90,6 +92,7 @@ class CategoryPost(ListView):
             slug=self.kwargs['category_slug'],
             is_published=True,
         )
+        self.category = category
         return (
             category.posts.filter(
                 is_published=True,
@@ -101,11 +104,7 @@ class CategoryPost(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['category'] = get_object_or_404(
-            Category,
-            slug=self.kwargs['category_slug'],
-            is_published=True,
-        )
+        context['category'] = self.category
         return context
 
 
@@ -115,15 +114,13 @@ class PostDetail(DetailView):
     pk_url_kwarg = 'post_pk'
     context_object_name = 'post'
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        instance = get_object_or_404(queryset, id=self.kwargs['post_pk'])
-        if self.request.user != instance.author:
-            queryset = queryset.filter(
-                is_published=True,
-                category__is_published=True,
-            )
-        return queryset
+    def get_object(self):
+        object = super(PostDetail, self).get_object()
+        if self.request.user != object.author and (not object.is_published or
+                                                   not object.category.
+                                                   is_published):
+            raise Http404()
+        return object
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -154,6 +151,11 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
             return redirect('blog:post_detail', post_pk=self.kwargs['post_id'])
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_edit_post'] = True
+        return context
+
 
 @login_required
 def add_comment(request, post_pk):
@@ -181,6 +183,7 @@ def edit_comment(request, post_pk, comment_id):
             'form': form,
             'comment': comment,
         }
+        return render(request, 'blog/comment.html', context)
     if request.method == 'POST':
         form = CommentForm(request.POST, instance=comment)
         if form.is_valid():
@@ -198,7 +201,8 @@ def delete_comment(request, post_pk, comment_id):
         delete_comment.delete()
         return redirect('blog:post_detail', post_pk=post_pk)
     context = {
-        'delete_comment': delete_comment,
+        'form': None,
+        'comment': delete_comment,
     }
     return render(request, 'blog/comment.html', context)
 
