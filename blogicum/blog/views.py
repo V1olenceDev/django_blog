@@ -10,9 +10,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from .models import Post, User, Comment, Category
 from .forms import PostForm, CommentForm, UserForm
-from django.conf import settings
-
-POSTS_PER_PAGE = settings.POSTS_PER_PAGE
+from blogicum.settings import POSTS_PER_PAGE
 
 
 def get_paginated_objects(objects, page_number, per_page=POSTS_PER_PAGE):
@@ -32,17 +30,14 @@ def index(request):
         .annotate(comment_count=Count('comments'))
         .order_by('-pub_date')
     )
-    page_obj = get_paginated_objects(post_list, request)
-    context = {
-        'page_obj': page_obj,
-    }
-    return render(request, template_name, context)
+    return render(request, template_name,
+                  {'page_obj': get_paginated_objects(post_list, request)})
 
 
 def user_profile(request, username):
     template_name = 'blog/profile.html'
     profile = get_object_or_404(User, username=username)
-    if str(request.user) == username:
+    if request.user.username == username:
         post_list = (
             Post.objects.filter(author__username=username)
             .annotate(comment_count=Count('comments'))
@@ -59,11 +54,11 @@ def user_profile(request, username):
             .annotate(comment_count=Count('comments'))
             .order_by('-pub_date')
         )
-    page_obj = get_paginated_objects(post_list, request,
-                                     per_page=POSTS_PER_PAGE)
+    page_number = request.GET.get('page')
     context = {
         'profile': profile,
-        'page_obj': page_obj,
+        'page_obj': get_paginated_objects(post_list, page_number,
+                                          per_page=POSTS_PER_PAGE),
     }
     return render(request, template_name, context)
 
@@ -115,18 +110,20 @@ class PostDetail(DetailView):
     context_object_name = 'post'
 
     def get_object(self):
-        object = super(PostDetail, self).get_object()
-        if self.request.user != object.author and\
-                (not object.is_published or not object.category.is_published):
+        obj = super(PostDetail, self).get_object()
+        if (self.request.user != obj.author and
+                (not obj.is_published or not obj.category.is_published)):
             raise Http404()
-        return object
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['form'] = CommentForm()
-        context['comments'] = self.object.comments.select_related(
-            'author'
-        ).order_by('created_at')
+        context['comments'] = (
+            self.object.comments
+            .select_related('author')
+            .order_by('created_at')
+        )
         return context
 
 

@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% load django_bootstrap5 %}
 {% block title %}
-  {% if '/edit/' in request.path %}
-    Редактирование публикации
-  {% elif "/delete/" in request.path %}
-    Удаление публикации
+  {% if is_edit %}
+    {% if is_delete %}
+      Удаление публикации
+    {% else %}
+      Редактирование публикации
+    {% endif %}
   {% else %}
     Добавление публикации
   {% endif %}
@@ -13,10 +15,12 @@
   <div class="col d-flex justify-content-center">
     <div class="card" style="width: 40rem;">
       <div class="card-header">
-        {% if '/edit/' in request.path %}
-          Редактирование публикации
-        {% elif '/delete/' in request.path %}
-          Удаление публикации
+        {% if is_edit %}
+          {% if is_delete %}
+            Удаление публикации
+          {% else %}
+            Редактирование публикации
+          {% endif %}
         {% else %}
           Добавление публикации
         {% endif %}
@@ -24,7 +28,7 @@
       <div class="card-body">
         <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
-          {% if not '/delete/' in request.path %}
+          {% if not is_delete %}
             {% bootstrap_form form %}
           {% else %}
             <article>

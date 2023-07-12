@@ -3,8 +3,9 @@
   Лента записей
 {% endblock %}
 {% block content %}
+  <h1 class="text-center">Лента записей</h1>
   {% for post in page_obj %}
-    {% include "includes/post_card.html" with post=post %}
+    {% include "includes/post_card.html" %}
   {% endfor %}
   {% include "includes/paginator.html" %}
 {% endblock %}
