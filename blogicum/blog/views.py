@@ -111,8 +111,8 @@ class PostDetail(DetailView):
 
     def get_object(self):
         obj = super(PostDetail, self).get_object()
-        if (self.request.user != obj.author and
-                (not obj.is_published or not obj.category.is_published)):
+        if (self.request.user != obj.author
+                and (not obj.is_published or not obj.category.is_published)):
             raise Http404()
         return obj
 
