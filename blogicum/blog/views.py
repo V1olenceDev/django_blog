@@ -10,10 +10,11 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from .models import Post, User, Comment, Category
 from .forms import PostForm, CommentForm, UserForm
-from blogicum.settings import POSTS_PER_PAGE
+from django.conf import settings
 
 
-def get_paginated_objects(objects, page_number, per_page=POSTS_PER_PAGE):
+def get_paginated_objects(objects, page_number,
+                          per_page=settings.POSTS_PER_PAGE):
     paginator = Paginator(objects, per_page)
     page_obj = paginator.get_page(page_number)
     return page_obj
@@ -31,13 +32,14 @@ def index(request):
         .order_by('-pub_date')
     )
     return render(request, template_name,
-                  {'page_obj': get_paginated_objects(post_list, request)})
+                  {'page_obj': get_paginated_objects(post_list,
+                                                     request.GET.get('page'))})
 
 
 def user_profile(request, username):
     template_name = 'blog/profile.html'
     profile = get_object_or_404(User, username=username)
-    if request.user.username == username:
+    if request.user.username == profile.username:
         post_list = (
             Post.objects.filter(author__username=username)
             .annotate(comment_count=Count('comments'))
@@ -58,7 +60,7 @@ def user_profile(request, username):
     context = {
         'profile': profile,
         'page_obj': get_paginated_objects(post_list, page_number,
-                                          per_page=POSTS_PER_PAGE),
+                                          per_page=settings.POSTS_PER_PAGE),
     }
     return render(request, template_name, context)
 
@@ -79,7 +81,7 @@ class EditUserProfile(LoginRequiredMixin, UpdateView):
 class CategoryPost(ListView):
     model = Post
     template_name = 'blog/category.html'
-    paginate_by = POSTS_PER_PAGE
+    paginate_by = settings.POSTS_PER_PAGE
 
     def get_queryset(self):
         category = get_object_or_404(
