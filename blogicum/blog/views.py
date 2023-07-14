@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
@@ -10,11 +11,13 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView
 
 from .models import Post, User, Comment, Category
 from .forms import PostForm, CommentForm, UserForm
-from django.conf import settings
 
 
-def get_paginated_objects(objects, page_number,
-                          per_page=settings.POSTS_PER_PAGE):
+def get_paginated_objects(
+        objects,
+        page_number,
+        per_page=settings.POSTS_PER_PAGE
+):
     paginator = Paginator(objects, per_page)
     page_obj = paginator.get_page(page_number)
     return page_obj
@@ -56,11 +59,9 @@ def user_profile(request, username):
             .annotate(comment_count=Count('comments'))
             .order_by('-pub_date')
         )
-    page_number = request.GET.get('page')
     context = {
         'profile': profile,
-        'page_obj': get_paginated_objects(post_list, page_number,
-                                          per_page=settings.POSTS_PER_PAGE),
+        'page_obj': get_paginated_objects(post_list, request.GET.get('page')),
     }
     return render(request, template_name, context)
 
